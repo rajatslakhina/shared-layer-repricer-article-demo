@@ -42,8 +42,8 @@ final class BreakEvenSolverTests: XCTestCase {
     }
 
     func testSolverReturnsTheEarliestRootWhenDeltaIsNotMonotonic() {
-        // delta is quadratic in assist, so it can cross zero twice. Assert both
-        // that this catalog contains such a case and that we return the first root.
+        // delta is quadratic in assist, so it can cross zero twice. When this
+        // feature does flip, assert the reported root is the earliest one.
         let f = Feature(id: "d", name: "D", nativeBuildDays: 18,
                         divergence: 0.02, parityCriticality: 0.62, changesPerYear: 11)
         let verdict = solver.breakEven(for: f, repricer: repricer)

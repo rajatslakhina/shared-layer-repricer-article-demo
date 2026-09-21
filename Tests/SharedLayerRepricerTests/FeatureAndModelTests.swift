@@ -18,7 +18,8 @@ final class FeatureAndModelTests: XCTestCase {
                         nativeBuildDays: 10, divergence: .nan,
                         parityCriticality: .infinity, changesPerYear: 1)
         XCTAssertEqual(f.divergence, 0)
-        // Infinity is finite-clamped to the top of the range, not to zero.
+        // Infinity is non-finite, so it maps to zero like NaN rather than
+        // clamping to the top of the range.
         XCTAssertEqual(f.parityCriticality, 0)
         XCTAssertFalse(f.divergence.isNaN)
     }
