@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shopify Went Native. I Priced the Same Call Across 12 Features — Eight of Them Never Flip.</title>
+<meta name="author" content="Rajat Lakhina">
+<meta property="og:title" content="Shopify Went Native. I Priced the Same Call Across 12 Features — Eight of Them Never Flip.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://raw.githubusercontent.com/rajatslakhina/shared-layer-repricer-article-demo/main/docs/2026-09-21-shared-layer-repricer-header.png">
+<style>
+body{max-width:740px;margin:40px auto;padding:0 20px;font:18px/1.7 Georgia,serif;color:#222}
+h1{font-size:38px;line-height:1.2} h2{font-size:26px;margin-top:2em}
+img{max-width:100%;height:auto}
+pre{background:#f6f8fa;padding:16px;overflow:auto;border-radius:6px;font-size:14px}
+code{font-family:ui-monospace,Menlo,monospace}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}
+blockquote{border-left:3px solid #222;margin-left:0;padding-left:18px;font-style:italic}
+hr{border:0;border-top:1px solid #ddd;margin:2.5em 0}
+</style>
+</head>
+<body>
+<article>
+<h1>Shopify Went Native. I Priced the Same Call Across 12 Features — Eight of Them Never Flip.</h1>
+<p><em>Coding agents really did collapse the cost of porting a React Native screen into Swift. They did nothing to the cost of proving two implementations still agree — and that second number is the one your migration business case is missing.</em></p>
+<p><img alt="Chart titled &quot;The term agents didn't discount.&quot; Two stacked bars show the cost of building one checkout flow twice natively over three years. The left bar, at 0% agent assist, totals 270.9 engineer-days: a tall blue &quot;build + authoring&quot; block of 230 days with a small orange &quot;parity 41 d&quot; block on top. The right bar, at 100% agent assist, totals 127.6 days: the blue block has shrunk to 86 days, a 62% drop marked by a green arrow, while the orange parity block is still exactly 41 days. A caption on the right reads &quot;parity minus 0%&quot; — verifying that two native implementations still agree is the line an agent does not shrink." src="https://raw.githubusercontent.com/rajatslakhina/shared-layer-repricer-article-demo/main/docs/2026-09-21-shared-layer-repricer-header.png" /></p>
+<p>Everyone read Shopify's 10 September post as "React Native lost."</p>
+<p>Read the last section instead. After 12 weeks, a 23% faster iOS cold start and 109 MB off the Android binary, the standing principle the team writes down is that <em>"Android and iOS must be at feature parity at all times. React Native enforced this through a shared codebase, and now that we're building natively we'll continue to enforce this through our development and release process."</em></p>
+<p>That single sentence converts a structural guarantee into a recurring process obligation, and the post is honest enough to say so out loud.</p>
+<p>It is worth noticing what did get tooling. For the migration itself — old app against new app — Shopify extended their debugging tool, Tardis, so it could snapshot both builds at matching points in a flow and hand an agent the two sets to compare, down to individual analytics payload fields. Proving two implementations agreed was a hard enough problem <em>once</em> that it earned a purpose-built comparison harness.</p>
+<p>The standing iOS-versus-Android version of that same question gets a sentence about process. It runs forever.</p>
+<hr />
+<h2>The cost curve moved. It did not move uniformly.</h2>
+<p>The post is specific about where the confidence came from. Before committing to anything, one engineer spent a week pointing agents at the React Native app and seeing how much of it they could rebuild in SwiftUI — a proof of concept, explicitly not production-ready, ahead of the real build by a core group of six engineers. And the sentence that matters for anyone copying this play: <em>"agents were particularly effective when they had an existing implementation to work from."</em></p>
+<p>That is a claim about porting, not building. The second platform stopped costing roughly what the first one did. It says nothing about keeping the two honest afterwards.</p>
+<p>Two terms, behaving differently under agent assistance: authoring shrinks, verification doesn't. Everyone is repricing the first and nobody the second — which is how you approve a migration on a number that quietly omits the biggest thing agent assistance never made cheaper.</p>
+<p>I wanted to know how much that omission is worth, so I wrote the model down as a Swift package and ran it.</p>
+<hr />
+<h2>Four numbers per feature</h2>
+<p>A feature gets four inputs. Nothing else about the shared-versus-native argument survives contact with a spreadsheet anyway.</p>
+<pre><code class="language-swift">let checkout = Feature(
+    id: &quot;checkout&quot;,
+    name: &quot;Checkout flow&quot;,
+    nativeBuildDays: 40,       // engineer-days to build once, natively
+    divergence: 0.25,          // 0...1 fraction that genuinely differs per platform
+    parityCriticality: 0.95,   // 0...1 cost of silent drift between platforms
+    changesPerYear: 18
+)
+</code></pre>
+<p>The model then prices both strategies at an agent-assist level: one scalar in <code>0...1</code> for how much of your authoring an agent really does, review rework included.</p>
+<p>The asymmetry is the whole argument, so it is stated in the type rather than buried:</p>
+<pre><code class="language-swift">public func nativeCost(for feature: Feature, assist: Double) -&gt; CostBreakdown {
+    let author = model.authoringMultiplier(assist: assist)   // shrinks with assist
+    let port = model.portFactor(assist: assist)              // collapses with assist
+    let base = feature.nativeBuildDays
+
+    let build = base * author * (1 + port)
+
+    let ongoingAuthoring = feature.changesPerYear
+        * model.changeAuthoringCost * author * (1 + port) * model.horizonYears
+
+    // The parity tax. No agent discount: this is verification, not authoring.
+    let ongoingUndiscounted = feature.changesPerYear
+        * model.parityCostPerChange * feature.parityCriticality * model.horizonYears
+
+    return CostBreakdown(build: build,
+                         ongoingAuthoring: ongoingAuthoring,
+                         ongoingUndiscounted: ongoingUndiscounted)
+}
+</code></pre>
+<p>The shared strategy carries an undiscounted term too — release-train alignment, two teams agreeing on one API — because a model where only one side pays a fixed cost would be rigged from the start.</p>
+<hr />
+<h2>Eight of twelve never flip</h2>
+<p>I ran a twelve-feature catalog shaped like a consumer shopping app: checkout, cart, search, product detail, auth, pricing rules, the usual.</p>
+<p><img alt="Horizontal bar chart titled &quot;Eight of twelve never flip.&quot; Twelve features are ordered by the agent-assist level at which building twice natively becomes cheaper. Four blue bars: scan-to-cart camera flips at 10%, onboarding at 48%, settings at 66%, product detail page at 92%. The remaining eight — address book, auth and session, order history, loyalty and points, search and filters, cart and promotions, pricing and tax rules, and checkout flow — are grey bars running the full width of the chart, each labelled &quot;never.&quot;" src="https://raw.githubusercontent.com/rajatslakhina/shared-layer-repricer-article-demo/main/docs/2026-09-21-shared-layer-repricer-flip-chart.png" /></p>
+<p>Four features cross over somewhere in the range. <strong>Eight never do, at any assist level between 0% and 100%.</strong> Those eight are 72% of the shared-layer budget.</p>
+<p>The order also surprises. Nobody plans a migration this way: the largest feature in the catalog, the 40-day checkout flow, never flips. The first to flip is the scan-to-cart camera — fourth largest, and 90% divergent, which is a polite way of saying it was barely shared code to begin with.</p>
+<p>Build size scales <em>both</em> strategies, so it largely cancels. The parity tax scales with churn times blast radius — an independent axis. Teams rank the port backlog by size because size is the number they can see.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Build</th>
+<th>Divergence</th>
+<th>churn × parity</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scan-to-cart camera</td>
+<td>28 d</td>
+<td>0.90</td>
+<td>1.25</td>
+<td>flips at <strong>10%</strong></td>
+</tr>
+<tr>
+<td>Onboarding</td>
+<td>14 d</td>
+<td>0.70</td>
+<td>0.8</td>
+<td>flips at <strong>48%</strong></td>
+</tr>
+<tr>
+<td>Settings</td>
+<td>10 d</td>
+<td>0.45</td>
+<td>0.45</td>
+<td>flips at <strong>66%</strong></td>
+</tr>
+<tr>
+<td>Product detail page</td>
+<td>30 d</td>
+<td>0.55</td>
+<td>5.6</td>
+<td>flips at <strong>92%</strong></td>
+</tr>
+<tr>
+<td>Checkout flow</td>
+<td>40 d</td>
+<td>0.25</td>
+<td>17.1</td>
+<td><strong>never</strong></td>
+</tr>
+<tr>
+<td>Pricing and tax rules</td>
+<td>24 d</td>
+<td>0.05</td>
+<td>16.0</td>
+<td><strong>never</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>The proof that it is the parity term</h2>
+<p>A model that only produces a ranking is an opinion with extra steps. So I deleted one term and re-ran it.</p>
+<p><img alt="Diagram titled &quot;Delete one term and the answer inverts.&quot; Two groups of twelve dots represent the same twelve-feature catalog at the same 100% agent assist, differing only in parityCostPerChange. On the left, with the parity cost at its default 0.80, four dots are filled blue and eight are empty: 4 of 12 flip to native. On the right, with parity cost set to 0, all twelve dots are filled orange: 12 of 12 flip to native." src="https://raw.githubusercontent.com/rajatslakhina/shared-layer-repricer-article-demo/main/docs/2026-09-21-shared-layer-repricer-counterfactual.png" /></p>
+<p>Set <code>parityCostPerChange</code> to zero — pretend verification really did get as cheap as authoring — and <strong>all twelve features flip</strong>, checkout included, crossing over at 75% assist.</p>
+<p>One term, holding eight of twelve decisions on its own. The model has two terms agent assistance doesn't touch — the shared layer pays a fixed coordination cost per change too — but on the checkout flow this one is more than twice the size of it.</p>
+<p>Measured on the checkout flow, moving from 0% to 100% assist: the build and authoring terms fall 62%, and the parity term falls 0%. As a share of the native bill it goes from 15.1% to 32.2% — not because it grew, but because everything around it shrank.</p>
+<blockquote>
+<p>Agent assistance is a discount on authoring. Parity is not authoring. It is the check that two authors agreed, and nobody has made that cheaper.</p>
+</blockquote>
+<hr />
+<h2>What this is actually worth on Monday</h2>
+<p>Shopify's migration looks correct for Shopify — a consumer app where the UI <em>is</em> the product, where 50% off Android cold start and a 10× cut in crashing sessions are worth real money, and where the React Native New Architecture migration was coming due anyway. The model doesn't dispute that. What it disputes is the rule people are extracting from it.</p>
+<p>Three things I would do before approving a port:</p>
+<p><strong>Price the parity term explicitly, per feature.</strong> Not "we'll be disciplined." A number, in engineer-days per change, times how often that feature changes. If you cannot produce that number, you are not ready to have the meeting.</p>
+<p><strong>Rank the backlog by divergence.</strong> Size is the number you can see; divergence is the one that decides. The features that leave your shared layer cheaply are the ones already full of platform-specific escape hatches — they were never really shared.</p>
+<p><strong>Budget the verification tooling up front.</strong> Shopify built a comparison harness for the one-time version of this question. The permanent version needs one too, and it is not free just because an agent writes the diff.</p>
+<p>The model is a runnable Swift package — library, tests, and an Xcode project with a live assist slider, meant to be dragged until your own features leave the shared layer: <a href="https://github.com/rajatslakhina/shared-layer-repricer-article-demo"><strong>shared-layer-repricer-article-demo</strong></a>. Swap in your own catalog; the defaults are estimates and they are meant to be argued with.</p>
+<hr />
+<p>If "eight of twelve never flip" is a number you'd want in front of whoever is writing your migration business case, a clap is what gets it there — you can leave up to 50.</p>
+<p>I want to be argued with on one input: <strong>what would you set <code>parityCostPerChange</code> to for your own checkout — engineer-days per change to confirm iOS and Android still behave identically?</strong> If your honest answer is under half a day, tell me what tooling gets you there, because that number decides everything else.</p>
+<hr />
+<p><strong>Source:</strong> Jason Kim, Quique Fagoaga and Max Da Silva, <a href="https://shopify.engineering/shop-app-migration">"Migrating Shop app from React Native to native"</a>, Shopify Engineering, 10 September 2026. The startup-time, stability and app-size figures, the Tardis description and the feature-parity principle are theirs; the cost model, the twelve-feature catalog and every break-even number are mine.</p>
+</article>
+</body>
+</html>
