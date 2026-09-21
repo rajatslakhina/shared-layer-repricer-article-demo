@@ -7,11 +7,14 @@ and a cost model, and it tells you, for each one, the **agent-assist level at wh
 building it twice natively becomes cheaper than keeping it in a shared layer** —
 or that no such level exists.
 
-Article: *(added after publish)*
+Article: [**Shopify Went Native. I Priced the Same Call Across 12 Features — Eight of Them Never Flip.**](https://medium.com/@er.rajatlakhina/shopify-went-native-i-priced-the-same-call-across-12-features-eight-of-them-never-flip-be49b8f40309)
 
 ---
 
 ## The finding
+
+![Chart titled "The term agents didn't discount." Two stacked bars show the cost of building one checkout flow twice natively over three years. At 0% agent assist the bar totals 270.9 engineer-days — a 230-day blue build-and-authoring block under a 41-day orange parity block. At 100% assist the total is 127.6 days: the blue block has fallen to 86 days, a 62% drop, while the orange parity block is still exactly 41 days.](docs/2026-09-21-shared-layer-repricer-header.png)
+
 
 Run the bundled 12-feature catalog through the default cost model and **8 of 12
 features never flip**, at any agent-assist level between 0% and 100%. Those eight
@@ -21,8 +24,8 @@ Delete one term — the parity tax, the cost of verifying that two native
 implementations still agree — and **all 12 flip**, with the checkout flow
 crossing over at 75% assist.
 
-That single term decides two thirds of the catalog, and it is the one term agent
-assistance does not touch. Agents made authoring cheap. Nobody made *checking
+That single term decides two thirds of the catalog, and agent assistance does not
+touch it. Agents made authoring cheap. Nobody made *checking
 that two authors agreed* cheap.
 
 Measured on the checkout flow, going from 0% to 100% assist:
@@ -37,11 +40,14 @@ grew, but because everything around it shrank.
 
 ### Flip order is not size order
 
+![Horizontal bar chart titled "Eight of twelve never flip." Four blue bars: scan-to-cart camera flips at 10%, onboarding at 48%, settings at 66%, product detail page at 92%. The other eight features are grey bars running the full width, each labelled "never."](docs/2026-09-21-shared-layer-repricer-flip-chart.png)
+
+
 | Feature | Build | Divergence | churn x parity | Verdict |
 |---|---|---|---|---|
-| Scan-to-cart camera | 28 d | 0.90 | 1.2 | flips at **10%** |
+| Scan-to-cart camera | 28 d | 0.90 | 1.25 | flips at **10%** |
 | Onboarding | 14 d | 0.70 | 0.8 | flips at **48%** |
-| Settings | 10 d | 0.45 | 0.4 | flips at **66%** |
+| Settings | 10 d | 0.45 | 0.45 | flips at **66%** |
 | Product detail page | 30 d | 0.55 | 5.6 | flips at **92%** |
 | Checkout flow | 40 d | 0.25 | 17.1 | **never** |
 | Pricing and tax rules | 24 d | 0.05 | 16.0 | **never** |
@@ -112,8 +118,8 @@ before the reported root.
 
 **Rejected alternatives**, so the choices are visible:
 
-- *A single "is it shared?" boolean per feature.* Discarded: it hides divergence, which
-  is the axis that decides three of the four flips here.
+- *A single "is it shared?" boolean per feature.* Discarded: it hides divergence, and the
+  four features that flip here are exactly the four most divergent in the catalog.
 - *Monte Carlo over uncertain inputs.* Discarded: it produces a distribution where the
   useful artifact is an argument about one term. The sensitivity that matters is already
   a switch — set `parityCostPerChange` to zero and watch the answer invert.
@@ -166,7 +172,7 @@ Stated precisely rather than implied.
 
 **Not done, and not claimed:**
 
-- **The demo was not launched on a Simulator, and `Demo/Screenshots/` is empty.** This ran
+- **The demo was not launched on a Simulator, and there is no `Demo/Screenshots/` directory.** This ran
   as an unattended scheduled task, where `request_access` for Xcode/Simulator returns
   *"Computer-use access can't be approved during a scheduled run"* — called twice, per the
   tool's own one-time-retry flow, with the same result both times. There is no Mac shell in
